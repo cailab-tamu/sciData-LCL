@@ -1,13 +1,13 @@
-# library(Matrix)
-# 
-# GM12878 <- readMM("GM12878/GRCh38/matrix.mtx")
-# rownames(GM12878) <- read.csv("GM12878/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
-# GM18502 <- readMM("GM18502/GRCh38/matrix.mtx")
-# rownames(GM18502) <- read.csv("GM18502/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
-# MIX <- readMM("mix/GRCh38/matrix.mtx")
-# rownames(MIX) <- read.csv("mix/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
-# 
-# MT <- read.csv("MT.txt", sep = "\t", stringsAsFactors = FALSE)
+library(Matrix)
+
+GM12878 <- readMM("GM12878/GRCh38/matrix.mtx")
+rownames(GM12878) <- read.csv("GM12878/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
+GM18502 <- readMM("GM18502/GRCh38/matrix.mtx")
+rownames(GM18502) <- read.csv("GM18502/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
+MIX <- readMM("mix/GRCh38/matrix.mtx")
+rownames(MIX) <- read.csv("mix/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
+
+MT <- read.csv("MT.txt", sep = "\t", stringsAsFactors = FALSE)
 
 png("Figure2.png", width = 3000, height = 900, res = 300)
 layout(matrix(c(1,2,3,1,2,3,1,2,3,4,5,6), 4, 3, byrow = TRUE))
