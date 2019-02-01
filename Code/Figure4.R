@@ -52,6 +52,7 @@ merged <- ScaleData(merged, genes.use = rownames(DE))
 DE_values <- merged@scale.data[rownames(DE),]
 DE_values <- t(scale(t(DE_values)))
 M2 <- merged@scale.data
+M2 <- M2[sort(rownames(DE)),]
 M2[M2 > 2] <- 2
 M2[M2 < -2] <- -2
 colors <- c(
@@ -67,18 +68,38 @@ colors <- c(
   rgb(255/255, 70/255,70/255),
   rgb(255/255,25/255,25/255)
 )
-png("Figure4.png", height = 2*300, width = 8*300, res = 300)
-layout(matrix(c(1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2), ncol = 21, nrow = 1))
-par(mar=c(4,1.5,4,0), mgp = c(1,0.5,0))
-image((M2), col = colors, yaxt="n", xaxt="n", bty = "n")
+
+png("Figure4.png", height = 2.9*300, width = 6*300, res = 300)
 nCells <- table(merged@meta.data$orig.ident)
-axis(side = 2, at = c((nCells[1]/2), nCells[1]+(nCells[2]/2))/sum(nCells), labels = c("GM12878", "GM18502"), las=3, cex.axis=0.7)
-abline(h = nCells[1]/sum(nCells), col= "white", lwd = 3)
-axis(side = 1, at = seq(from=0,to=nrow(DE)-1,by=2)*(1/(nrow(DE))), labels = rownames(DE)[seq(2,nrow(DE),2)], las = 2, cex.axis = 0.65, lwd = 0.3)
-axis(side = 3, at = seq(from=1,to=nrow(DE),by=2)*(1/(nrow(DE))), labels = rownames(DE)[seq(1,nrow(DE),2)], las = 2, cex.axis = 0.65, lwd = 0.3)
+layout(matrix(c(rep(1,60),rep(2,60),rep(3,60),4,4,4,5,5,5,5,5,5,5), ncol = 19, byrow = FALSE))
+par(mar=c(0.5,3.5,1.5,3.5), mgp = c(1,0.5,0))
+
+gNames <- sort(rownames(M2)[1:80], decreasing = TRUE)
+image(t(M2[gNames,]), col = colors, yaxt="n", xaxt="n", bty = "n")
+axis(side = 3, at = c((nCells[1]/2), nCells[1]+(nCells[2]/2))/sum(nCells), labels = c("GM12878", "GM18502"), las=1, cex.axis=0.8)
+abline(v = nCells[1]/sum(nCells), col= "white", lwd = 3)
+axis(side=2, at= (1/79)*seq(1,80,2), labels = gNames[seq(1,80,2)], las=2, cex.axis = 0.6)
+axis(side=4, at= ((1/79)*seq(0,78,2)), labels = gNames[seq(2,80,2)], las=2, cex.axis = 0.6)
 box()
-par(mar=c(4,2,4,0.5), mgp = c(1.5,0.5,0))
+
+gNames <- sort(rownames(M2)[81:160], decreasing = TRUE)
+image(t(M2[gNames,]), col = colors, yaxt="n", xaxt="n", bty = "n")
+axis(side = 3, at = c((nCells[1]/2), nCells[1]+(nCells[2]/2))/sum(nCells), labels = c("GM12878", "GM18502"), las=1, cex.axis=0.8)
+abline(v = nCells[1]/sum(nCells), col= "white", lwd = 3)
+axis(side=2, at= (1/79)*seq(1,80,2), labels = gNames[seq(1,80,2)], las=2, cex.axis = 0.6)
+axis(side=4, at= ((1/79)*seq(0,78,2)), labels = gNames[seq(2,80,2)], las=2, cex.axis = 0.6)
+box()
+
+
+gNames <- sort(rownames(M2)[161:240], decreasing = TRUE)
+image(t(M2[gNames,]), col = colors, yaxt="n", xaxt="n", bty = "n")
+axis(side = 3, at = c((nCells[1]/2), nCells[1]+(nCells[2]/2))/sum(nCells), labels = c("GM12878", "GM18502"), las=1, cex.axis=0.8)
+abline(v = nCells[1]/sum(nCells), col= "white", lwd = 3)
+axis(side=2, at= (1/79)*seq(1,80,2), labels = gNames[seq(1,80,2)], las=2, cex.axis = 0.6)
+axis(side=4, at= ((1/79)*seq(0,78,2)), labels = gNames[seq(2,80,2)], las=2, cex.axis = 0.6)
+box()
+
+par(mar=c(1,1.5,2.3,0.5), mgp = c(1.5,0.5,0))
 image.scale(M2, col = colors, ylab="", xlab = "", horiz = FALSE, las=2, cex.axis=0.7)
 box()
 dev.off()
-
