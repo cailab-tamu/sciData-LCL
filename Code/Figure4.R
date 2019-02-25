@@ -63,7 +63,7 @@ all <- log10(all)
 
 cor(all,method = "sp")
 
-png("Figure4.png", width = 900*4, height = 900, res = 300)
+png("Figure4.png", width = 900*4, height = 1080, res = 300)
 par(mfrow=c(1,4))
 par(mar=c(3,3,2.5,1), mgp=c(1.5,0.5,0))
 plot(all[,"scGM12878"],all[,"bGM12878"], pch = 16, 
@@ -71,8 +71,8 @@ plot(all[,"scGM12878"],all[,"bGM12878"], pch = 16,
      xlab = "", 
      ylab = "", las=1)
 corV <- round(cor(all[,"scGM12878"],all[,"bGM12878"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1, cex = 0.8, line = 2)
-mtext(parse(text = "log[10] (paste('TPM'))"), side = 2, cex = 0.8, line = 1.5)
+mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
+mtext(parse(text = "log[10] (paste('TPM'))"), side = 2,  line = 1.5)
 mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
 mtext("GM12878 vs. GM12878", side = 3, line = 0.1, cex = 0.7)
 legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
@@ -81,8 +81,8 @@ abline(lm(all[,"bGM12878"]~all[,"scGM12878"]), col = "red")
 plot(all[,"scGM18502"],all[,"bGM18502"], pch = 16, 
      col=densCols(cbind(all[,"scGM18502"],all[,"bGM18502"])), 
      xlab="", ylab="",las=1)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1, cex = 0.8, line = 2)
-mtext(parse(text = "log[10] (paste('TPM'))"), side = 2, cex = 0.8, line = 1.5)
+mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
+mtext(parse(text = "log[10] (paste('TPM'))"), side = 2,  line = 1.5)
 mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
 mtext("GM18502 vs. GM18502", side = 3, line = 0.1, cex = 0.7)
 corV <- round(cor(all[,"scGM18502"],all[,"bGM18502"], method = 'sp'),2)
@@ -94,8 +94,8 @@ plot(all[,"scGM12878"],all[,"CEU"], pch = 16,
      xlab = "", 
      ylab = "", las=1)
 corV <- round(cor(all[,"scGM12878"],all[,"CEU"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1, cex = 0.8, line = 2)
-mtext(parse(text = "log[10](paste('average TPM'))"), side = 2, cex = 0.8, line = 1.5)
+mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
+mtext(parse(text = "log[10](paste('average TPM'))"), side = 2,  line = 1.5)
 mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
 mtext("GM12878 vs. CEU Population", side = 3, line = 0.1, cex = 0.7)
 legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
@@ -106,8 +106,8 @@ plot(all[,"scGM18502"],all[,"YRI"], pch = 16,
      xlab = "", 
      ylab = "", las=1)
 corV <- round(cor(all[,"scGM18502"],all[,"YRI"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1, cex = 0.8, line = 2)
-mtext(parse(text = "log[10](paste('average TPM'))"), side = 2, cex = 0.8, line = 1.5)
+mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
+mtext(parse(text = "log[10](paste('average TPM'))"), side = 2, line = 1.5)
 mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
 mtext("GM18502 vs. YRI Population", side = 3, line = 0.1, cex = 0.7)
 legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
