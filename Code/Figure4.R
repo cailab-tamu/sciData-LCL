@@ -1,119 +1,164 @@
-library(Matrix)
-library(geuvPack)
+#install_version("Seurat", version = "2.3.4", repos = "http://cran.us.r-project.org")
+library(Seurat)
 
-data("geuFPKM")
-geneLength <- read.csv("hg38_genes_length.tsv", sep = "\t", stringsAsFactors = FALSE)
-gL <- geneLength[,4]
-names(gL) <- geneLength[,1]
-geneInfo <- cbind(geuFPKM@rowRanges$gene_id,geuFPKM@rowRanges$gene_name)
-rownames(geneInfo) <- geneInfo[,1]
-popInfo <- read.csv("../populationInfo/GD660.GeneQuantCount.txt.gz", sep = "\t")
-gNames <- popInfo[,2]
-popInfo <- popInfo[gNames %in% geneInfo[,1],]
-gNames <- gNames[gNames %in% geneInfo[,1]]
-gNames <- geneInfo[as.vector(gNames),2]
-colnames(popInfo) <- unlist(lapply(strsplit(colnames(popInfo), "\\."), function(X){X[1]}))
-popInfo <- popInfo[,colnames(geuFPKM)]
-rownames(popInfo) <- make.unique(gNames)
+GM12878 <- Read10X("GM12878/GRCh38/")
+GM18502 <- Read10X("GM18502/GRCh38/")
+MIX <- Read10X("mix/GRCh38/")
 
-CEU <- popInfo[,geuFPKM@colData$popcode == "CEU",]
-CEU <- CEU[rownames(CEU) %in% geneLength[,1],]
-CEU <- CEU/gL[rownames(CEU)]
-CEU <- t(t(CEU)/(colSums(CEU)/1e6))
-CEU <- cbind(rowMeans(CEU))
+GM12878 <- CreateSeuratObject(raw.data = GM12878, project = "GM12878")
+GM18502 <- CreateSeuratObject(raw.data = GM18502, project = "GM18502")
+MIX <- CreateSeuratObject(raw.data = MIX, project = "MIX")
 
-YRI <- popInfo[,geuFPKM@colData$popcode == "YRI",]
-YRI <- YRI[rownames(YRI) %in% geneLength[,1],]
-YRI <- YRI/gL[rownames(YRI)]
-YRI <- t(t(YRI)/(colSums(YRI)/1e6))
-YRI <- cbind(rowMeans(YRI))
+M1 <- MergeSeurat(GM12878,MIX, add.cell.id1 = "GM12878", add.cell.id2 = "MIX")
+M2 <- MergeSeurat(M1, GM18502, add.cell.id2 = "GM18502")
+rm(M1)
+M2 <- ScaleData(M2)
+M2 <- FindVariableGenes(M2)
+M2 <- RunPCA(object = M2, pc.genes = M2@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
+M2 <- RunTSNE(M2)
+M2 <- RunUMAP(M2, dims.use = 1:5)
+# save(M2, file='M2.RData')
 
-bulkRNAseq <- read.csv("bulkFQ/RNAseq.tsv", sep = "\t")
-bulkRNAseq <- bulkRNAseq[rownames(bulkRNAseq) %in% geneLength[,1],]
+GM12878 <- NormalizeData(GM12878)
+GM12878 <- ScaleData(GM12878)
+GM12878 <- FindVariableGenes(GM12878)
+GM12878 <- CellCycleScoring(object = GM12878, g2m.genes = cc.genes$g2m.genes, s.genes = cc.genes$s.genes)
 
-GM12878 <- readMM("../GM12878/GRCh38/matrix.mtx")
-rownames(GM12878) <- read.csv("../GM12878/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
-GM12878 <- cbind(apply(GM12878,1,sum))
+GM18502 <- NormalizeData(GM18502)
+GM18502 <- ScaleData(GM18502)
+GM18502 <- FindVariableGenes(GM18502)
+GM18502 <- CellCycleScoring(object = GM18502, g2m.genes = cc.genes$g2m.genes, s.genes = cc.genes$s.genes)
 
-GM18502 <- readMM("../GM18502/GRCh38/matrix.mtx")
-rownames(GM18502) <- read.csv("../GM18502/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
-GM18502 <- cbind(apply(GM18502,1,sum))
+MIX <- NormalizeData(MIX)
+MIX <- ScaleData(MIX)
+MIX <- FindVariableGenes(MIX)
+MIX <- CellCycleScoring(object = MIX, g2m.genes = cc.genes$g2m.genes, s.genes = cc.genes$s.genes)
 
-sharedGenes <- table(c(make.unique(rownames(GM12878)),
-make.unique(rownames(GM18502)),
-make.unique(rownames(CEU)),
-make.unique(rownames(YRI)),
-make.unique(rownames(bulkRNAseq))))
-sharedGenes <- names(sharedGenes[sharedGenes == 5])
+# load("M2.RData")
 
-bulkRNAseq <- bulkRNAseq[sharedGenes,]
-GM18502 <- GM18502[sharedGenes,]
-GM12878 <- GM12878[sharedGenes,]
-CEU <- CEU[sharedGenes,]
-YRI <- YRI[sharedGenes,]
+tV <- M2@dr$tsne@cell.embeddings
+pdf("Figure4.pdf", width = 3.5*3, height = 3.5*2)
+par(mfrow=c(2,3), mar=c(3,3,1.5,1), mgp=c(2,0.7,0))
+# GM12878
+phaseCol <- as.vector(GM12878@meta.data$Phase)
+phaseCol[phaseCol == "G1"] <- rgb(0/255,0/255,255/255,0.3)
+phaseCol[phaseCol == "G2M"] <- rgb(0/255,128/255,255/255,0.3)
+phaseCol[phaseCol == "S"] <- rgb(0/255,255/255,255/255,0.3)
+plot(tV[M2@meta.data$orig.ident == "GM12878",], xlim = c(-60,60),ylim = c(-60,60), pch = 20, col = phaseCol, las = 1, main = "GM12878", xlab = "", ylab = "")
+mtext("t-SNE 1", side = 1, cex = 0.8, line = 2)
+mtext("t-SNE 2", side = 2, cex = 0.8, line = 2)
+text(-45,-60, "n = 7045 Cells")
+text(-40,30, "G2M (1299, 18.4%)")
+arrows(x0 = -40, y0 = 25, x1 = -35, y1 = 20, length = 0.05)
+text(-45,-25, "S (1113, 15.8%)")
+arrows(x0 = -47, y0 = -20, x1 = -30, y1 = 3, length = 0.05)
+text(43,-50, "G1 (4633, 65.8%)")
+arrows(x0 = 20, y0 = -48, x1 = 12, y1 = -44, length = 0.05)
 
-all <- cbind(bulkRNAseq)
-all <- all/gL[rownames(all)]
-all <- t(t(all)/(apply(all,2,sum)/1e6))
-all <- cbind(all,GM12878,GM18502,CEU,YRI)
-all <- all[rowSums(all == 0) == 0,]
+# Mixture
+cc <- as.vector(MIX@meta.data$Phase)
+lineage <- as.vector(read.csv("cellLineage.tsv", sep = "\t", header = FALSE)[,2])
+lineage[lineage == "AFR" & cc == "G1"] <- rgb(127/255,0/255,255/255,0.3)
+lineage[lineage == "AFR" & cc == "G2M"] <- rgb(255/255,0/255,127/255,0.3)
+lineage[lineage == "AFR" & cc == "S"] <- rgb(255/255,0/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "G1"] <- rgb(0/255,0/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "G2M"] <- rgb(0/255,128/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "S"] <- rgb(0/255,255/255,255/255,0.3)
+plot(tV[M2@meta.data$orig.ident == "MIX",], xlim = c(-60,60),ylim = c(-60,60), pch = 20, las = 1, col = lineage, main="MIXTURE GM12878/GM18502", xlab = "", ylab = "")
+mtext("t-SNE 1", side = 1, cex = 0.8, line = 2)
+mtext("t-SNE 2", side = 2, cex = 0.8, line = 2)
+text(-39,57, "3492 Cells (60%)\nAssigned to GM12878")
+text(39,-57, "2328 Cells (40%)\nAssigned to GM18502")
+text(50,30,"S\n(417, 17.9%)")
+arrows(x0 = 33, y0 = 28, x1 = 0, y1 = 25, length = 0.05)
+text(45,55,"G2M\n(405, 17.4%)")
+arrows(x0 = 30, y0 = 48, x1 = 20, y1 = 45, length = 0.05)
+text(45,-35,"G1\n(1506, 64.7%)")
+arrows(x0 = 45, y0 = -28, x1 = 40, y1 = -15, length = 0.05)
+text(-50,30,"G2M\n(967, 27.7%)")
+arrows(x0 = -50, y0 = 23, x1 = -45, y1 = 18, length = 0.05)
+text(-50,-20,"S\n(874, 25%)")
+arrows(x0 = -47, y0 = -17, x1 = -35, y1 = 0, length = 0.05)
+text(-40,-50,"G1\n(1651, 47.3%)")
+arrows(x0 = -35, y0 = -50, x1 = -18, y1 = -45, length = 0.05)
 
-colnames(all) <- c("bGM12878", "bGM18502", "scGM12878", "scGM18502", "CEU", "YRI")
-all <- log10(all)
+# GM18502
+phaseCol <- as.vector(GM18502@meta.data$Phase)
+phaseCol[phaseCol == "G1"] <- rgb(127/255,0/255,255/255,0.3)
+phaseCol[phaseCol == "G2M"] <- rgb(255/255,0/255,127/255,0.3)
+phaseCol[phaseCol == "S"] <- rgb(255/255,0/255,255/255,0.3)
+plot(tV[M2@meta.data$orig.ident == "GM18502",], xlim = c(-60,60),ylim = c(-60,60), pch = 20, col = phaseCol, las = 1, main = "GM18502", xlab="", ylab = "")
+mtext("t-SNE 1", side = 1, cex = 0.8, line = 2)
+mtext("t-SNE 2", side = 2, cex = 0.8, line = 2)
+text(-45,-60, "n = 5189 Cells")
+text(0,-20,"S (1367, 23.6%)")
+arrows(x0 = 0, y0 = -15, x1 = 0, y1 = 20, length = 0.05)
+text(45,55,"G2M\n(1297, 25%)")
+arrows(x0 = 30, y0 = 48, x1 = 20, y1 = 45, length = 0.05)
+text(45,-35,"G1\n(2525, 48.7%)")
+arrows(x0 = 45, y0 = -28, x1 = 40, y1 = -15, length = 0.05)
 
-cor(all,method = "sp")
 
-png("Figure4.png", width = 900*4, height = 1080, res = 300)
-par(mfrow=c(1,4))
-par(mar=c(3,3,2.5,1), mgp=c(1.5,0.5,0))
-plot(all[,"scGM12878"],all[,"bGM12878"], pch = 16, 
-     col=densCols(cbind(all[,"scGM12878"],all[,"bGM12878"])), 
-     xlab = "", 
-     ylab = "", las=1)
-corV <- round(cor(all[,"scGM12878"],all[,"bGM12878"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
-mtext(parse(text = "log[10] (paste('TPM'))"), side = 2,  line = 1.5)
-mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM12878 vs. GM12878", side = 3, line = 0.1, cex = 0.7)
-legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
-abline(lm(all[,"bGM12878"]~all[,"scGM12878"]), col = "red")
+UMAP <- M2@dr$umap@cell.embeddings
+# GM12878
+phaseCol <- as.vector(GM12878@meta.data$Phase)
+phaseCol[phaseCol == "G1"] <- rgb(0/255,0/255,255/255,0.3)
+phaseCol[phaseCol == "G2M"] <- rgb(0/255,128/255,255/255,0.3)
+phaseCol[phaseCol == "S"] <- rgb(0/255,255/255,255/255,0.3)
+plot(UMAP[M2@meta.data$orig.ident == "GM12878",], xlim = c(-13,13),ylim = c(-13,13), pch = 20, col = phaseCol, las = 1, main = "GM12878", xlab = "", ylab = "")
+mtext("UMAP 1", side = 1, cex = 0.8, line = 2)
+mtext("UMAP 2", side = 2, cex = 0.8, line = 2)
+text(-10,-12.5, "n = 7045 Cells")
+text(-9.5,5, "G2M\n(1299, 18.4%)")
+arrows(x0 = -7.5, y0 = 5.5, x1 = -5, y1 = 6, length = 0.05)
+text(3,10, "S (1113, 15.8%)")
+arrows(x0 = 3, y0 = 9.5, x1 = -0.5, y1 = 8.3, length = 0.05)
+text(9,-8, "G1 (4633, 65.8%)")
+arrows(x0 = 9, y0 = -7.5, x1 = 8, y1 = -3, length = 0.05)
 
-plot(all[,"scGM18502"],all[,"bGM18502"], pch = 16, 
-     col=densCols(cbind(all[,"scGM18502"],all[,"bGM18502"])), 
-     xlab="", ylab="",las=1)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
-mtext(parse(text = "log[10] (paste('TPM'))"), side = 2,  line = 1.5)
-mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM18502 vs. GM18502", side = 3, line = 0.1, cex = 0.7)
-corV <- round(cor(all[,"scGM18502"],all[,"bGM18502"], method = 'sp'),2)
-legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
-abline(lm(all[,"bGM18502"]~all[,"scGM18502"]), col = "red")
+# MIX
+cc <- as.vector(MIX@meta.data$Phase)
+lineage <- as.vector(read.csv("cellLineage.tsv", sep = "\t", header = FALSE)[,2])
+lineage[lineage == "AFR" & cc == "G1"] <- rgb(127/255,0/255,255/255,0.3)
+lineage[lineage == "AFR" & cc == "G2M"] <- rgb(255/255,0/255,127/255,0.3)
+lineage[lineage == "AFR" & cc == "S"] <- rgb(255/255,0/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "G1"] <- rgb(0/255,0/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "G2M"] <- rgb(0/255,128/255,255/255,0.3)
+lineage[lineage == "EUR" & cc == "S"] <- rgb(0/255,255/255,255/255,0.3)
+plot(UMAP[M2@meta.data$orig.ident == "MIX",], xlim = c(-13,13),ylim = c(-13,13), pch = 20, las = 1, col = lineage, main="MIXTURE GM12878/GM18502", xlab = "", ylab = "")
+mtext("UMAP 1", side = 1, cex = 0.8, line = 2)
+mtext("UMAP 2", side = 2, cex = 0.8, line = 2)
+text(8,12.5, "3492 Cells (60%)\nAssigned to GM12878")
+text(-8,-12.5, "2328 Cells (40%)\nAssigned to GM18502")
 
-plot(all[,"scGM12878"],all[,"CEU"], pch = 16, 
-     col=densCols(cbind(all[,"scGM12878"],all[,"CEU"])), 
-     xlab = "", 
-     ylab = "", las=1)
-corV <- round(cor(all[,"scGM12878"],all[,"CEU"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
-mtext(parse(text = "log[10](paste('average TPM'))"), side = 2,  line = 1.5)
-mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM12878 vs. CEU Population", side = 3, line = 0.1, cex = 0.7)
-legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
-abline(lm(all[,"CEU"]~all[,"scGM12878"]), col = "red")
+text(-10,-7,"S\n(417, 17.9%)")
+arrows(x0 = -10, y0 = -5.5, x1 = -9, y1 = -2, length = 0.05)
+text(-9.8,5,"G2M\n(405, 17.4%)")
+arrows(x0 = -9.8, y0 = 3.7, x1 = -9, y1 = 2.5, length = 0.05)
+text(3,-12,"G1\n(1506, 64.7%)")
+arrows(x0 = 3, y0 = -10.5, x1 = 2, y1 = -9, length = 0.05)
 
-plot(all[,"scGM18502"],all[,"YRI"], pch = 16, 
-     col=densCols(cbind(all[,"scGM18502"],all[,"YRI"])),
-     xlab = "", 
-     ylab = "", las=1)
-corV <- round(cor(all[,"scGM18502"],all[,"YRI"], method = 'sp'),2)
-mtext(parse(text = "log[10] (paste('total UMI'))"), side = 1,  line = 2)
-mtext(parse(text = "log[10](paste('average TPM'))"), side = 2, line = 1.5)
-mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM18502 vs. YRI Population", side = 3, line = 0.1, cex = 0.7)
-legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
-abline(lm(all[,"YRI"]~all[,"scGM18502"]), col = "red")
+text(-8.5,10.5,"G2M\n(967, 27.7%)")
+arrows(x0 = -8.5, y0 = 9, x1 = -5.5, y1 = 7.5, length = 0.05)
+text(0,11,"S\n(874, 25%)")
+arrows(x0 = 0, y0 = 9.5, x1 = 0, y1 = 8, length = 0.05)
+text(10.5,-6,"G1\n(1651, 47.3%)")
+arrows(x0 = 10.5, y0 = -4.5, x1 = 8, y1 = -2, length = 0.05)
+
+# GM18502
+phaseCol <- as.vector(GM18502@meta.data$Phase)
+phaseCol[phaseCol == "G1"] <- rgb(127/255,0/255,255/255,0.3)
+phaseCol[phaseCol == "G2M"] <- rgb(255/255,0/255,127/255,0.3)
+phaseCol[phaseCol == "S"] <- rgb(255/255,0/255,255/255,0.3)
+plot(UMAP[M2@meta.data$orig.ident == "GM18502",], xlim = c(-13,13),ylim = c(-13,13), pch = 20, col = phaseCol, las = 1, main = "GM18502", xlab="", ylab = "")
+mtext("UMAP 1", side = 1, cex = 0.8, line = 2)
+mtext("UMAP 2", side = 2, cex = 0.8, line = 2)
+text(10,-12.5, "n = 5189 Cells")
+text(-9,-7,"S (1367, 23.6%)")
+arrows(x0 = -9, y0 = -6, x1 = -8, y1 = -1, length = 0.05)
+text(-10.5,6,"G2M\n(1297, 25%)")
+arrows(x0 = -10, y0 = 4.5, x1 = -10, y1 = 2, length = 0.05)
+text(8,-7,"G1\n(2525, 48.7%)")
+arrows(x0 = 7, y0 = -6, x1 = 2, y1 = -6, length = 0.05)
+
 dev.off()
-
-# "log10(RNA-seq FPKM)\nCEU:SRR038449",
-# "log10(RNA-seq FPKM)\nYRI:SRR6355954",
-

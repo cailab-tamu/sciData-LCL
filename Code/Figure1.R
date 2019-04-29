@@ -1,66 +1,151 @@
-library(Matrix)
-# Single Cell Matrices
-GM12878 <- readMM("GM12878/GRCh38/matrix.mtx")
-rownames(GM12878) <- read.csv("GM12878/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
-GM18502 <- readMM("GM18502/GRCh38/matrix.mtx")
-rownames(GM18502) <- read.csv("GM18502/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
-MIX <- readMM("mix/GRCh38/matrix.mtx")
-rownames(MIX) <- read.csv("mix/GRCh38/genes.tsv", header = FALSE, sep = "\t", stringsAsFactors = FALSE)[,1]
+# Image scale function from https://gist.githubusercontent.com/menugget/7689145/raw/2381856aaa12ea5db0791fc4e4ac1eed8189cdfe/image.scale.2.r
+image.scale <- function(z, zlim, col = heat.colors(12),
+                        breaks, horiz=TRUE, ylim=NULL, xlim=NULL, ...){
+  if(!missing(breaks)){
+    if(length(breaks) != (length(col)+1)){stop("must have one more break than colour")}
+  }
+  if(missing(breaks) & !missing(zlim)){
+    breaks <- seq(zlim[1], zlim[2], length.out=(length(col)+1)) 
+  }
+  if(missing(breaks) & missing(zlim)){
+    zlim <- range(z, na.rm=TRUE)
+    zlim[2] <- zlim[2]+c(zlim[2]-zlim[1])*(1E-3)#adds a bit to the range in both directions
+    zlim[1] <- zlim[1]-c(zlim[2]-zlim[1])*(1E-3)
+    breaks <- seq(zlim[1], zlim[2], length.out=(length(col)+1))
+  }
+  poly <- vector(mode="list", length(col))
+  for(i in seq(poly)){
+    poly[[i]] <- c(breaks[i], breaks[i+1], breaks[i+1], breaks[i])
+  }
+  xaxt <- ifelse(horiz, "s", "n")
+  yaxt <- ifelse(horiz, "n", "s")
+  if(horiz){YLIM<-c(0,1); XLIM<-range(breaks)}
+  if(!horiz){YLIM<-range(breaks); XLIM<-c(0,1)}
+  if(missing(xlim)) xlim=XLIM
+  if(missing(ylim)) ylim=YLIM
+  plot(1,1,t="n",ylim=ylim, xlim=xlim, xaxt=xaxt, yaxt=yaxt, xaxs="i", yaxs="i", ...)  
+  for(i in seq(poly)){
+    if(horiz){
+      polygon(poly[[i]], c(0,0,1,1), col=col[i], border=NA)
+    }
+    if(!horiz){
+      polygon(c(0,0,1,1), poly[[i]], col=col[i], border=NA)
+    }
+  }
+}
 
-# Cell Assignation from NNMF
-cellL <- read.csv("cellLineage.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
+library(Seurat)
 
-# Growth Curve
-allCC <- read.csv("CC.csv", header = FALSE)
-CC <- allCC[,2:5]
-n <- apply(!apply(CC, 1, is.na),2,sum)
-sd <- apply(CC, 1, function(x){sd(x, na.rm=TRUE)})
-se <- sd/sqrt(n)
-avg <- apply(CC, 1, function(x){mean(x, na.rm=TRUE)})
-names(avg) <- rep(c(0:4),2)
+GM12878 <- Read10X("GM12878/GRCh38/")
+GM18502 <- Read10X("GM18502/GRCh38/")
 
-# Figure 1 Output file
-png(filename = "Figure1.png", width = 3000, height = 900, res = 300)
-par(mar=c(3,4,1,1), mgp=c(3,0.5,0), mfrow=c(1,3))
-  # Growth Curve
-plot(avg[1:5], type = "b", pch = 16, las=1, ylim = c(0,1e6), col= "black", ylab = "", xaxt="n", xlab="")
-axis(side = 1, at = 1:5, labels = 0:4)
-points(avg[6:10], type = "b", pch = 15, col = "red")
-arrows(x0 = 1:5, y0 = (avg-se)[1:5], y1 = (avg+se)[1:5], x1 = 1:5, angle = 90, length = 0.05,code = 3)
-arrows(x0 = 1:5, y0 = (avg-se)[6:10], y1 = (avg+se)[6:10], x1 = 1:5, angle = 90, length = 0.05,code = 3, col="red")
-legend("bottomright", legend = c("GM12878", "GM18502"), bty = "n", pch = c(16,15), col = c("black", "red"))
-mtext("Time (Days)", side=1, line=1.5, cex=.8,las=1)
-mtext("Viable Cell Count / mL", side = 2, line = 3, cex=.8)
+GM12878 <- CreateSeuratObject(GM12878)
+GM12878 <- NormalizeData(GM12878)
+GM12878 <- ScaleData(GM12878, genes.use = unlist(cc.genes))
+GM18502 <- CreateSeuratObject(GM18502)
+GM18502 <- NormalizeData(GM18502)
+GM18502 <- ScaleData(GM18502, genes.use = unlist(cc.genes))
 
-rNames <- table(c(rownames(GM12878),rownames(MIX)))
-rNames <- names(rNames[rNames == 2])
-A <- apply(GM12878[rNames,],1,mean)
-B <- apply(MIX[rNames,cellL == "EUR"],1,mean)
-C <- cbind(A,B)
-C <- C[apply(C == 0, 1, sum) < 1,]
-C <- log(C)
-par(mar=c(3,3,1,1), mgp=c(2.2,0.5,0))
-  # GM12878
-plot(C, pch = 16, las = 1,ylab="", xlab="", col=densCols(C), xlim = c(-8.5,7), ylim = c(-8.5,7), main = "GM12878")
-legend("bottomright", legend = c(expression(paste(rho ," = 0.993")), "n = 18410"), bty="n")
-mtext("Expression Level from Pure Sample, log", side = 2, line = 1.5, cex=.8)
-mtext("Expression Level from Mixture, log", side=1, line=1.5, cex=0.8)
-abline(0,1, col = "red")
+GM12878 <- CellCycleScoring(GM12878, g2m.genes = cc.genes$g2m.genes, s.genes = cc.genes$s.genes)
+GM18502 <- CellCycleScoring(GM18502, g2m.genes = cc.genes$g2m.genes, s.genes = cc.genes$s.genes)
 
-rNames <- table(c(rownames(GM18502),rownames(MIX)))
-rNames <- names(rNames[rNames == 2])
-A <- apply(GM18502[rNames,],1,mean)
-B <- apply(MIX[rNames,cellL == "AFR"],1,mean)
-C <- cbind(A,B)
-C <- C[apply(C == 0, 1, sum) < 1,]
-X <- C[,1]
-W <- as.numeric(solve(t(X) %*% X) %*% X)
-C <- log(C)
-par(mar=c(3,3,1,1), mgp=c(2.2,0.5,0))
-  # GM18502
-plot(C, pch = 16, ylab = "", las = 1, xlab="", col=densCols(C), xlim = c(-8.5,7), ylim = c(-8.5,7), main="GM18502")
-legend("bottomright", legend = c(expression(paste(rho ," = 0.993")), "n = 18888"), bty="n")
-mtext("Expression Level from Pure Sample, log", side = 2, line = 1.5, cex=.8)
-mtext("Expression Level from Mixture, log", side=1, line=1.5, cex=0.8)
-abline(0,1, col = "red")
+CEU <- as.matrix(GM12878@raw.data)
+YRI <- as.matrix(GM18502@raw.data)
+
+CEU <- CEU[rownames(CEU) %in% rownames(YRI),]
+YRI <- YRI[rownames(YRI) %in% rownames(CEU),]
+
+YRI <- YRI[rownames(CEU),]
+
+CEU_S <- CEU[,GM12878@meta.data$Phase == "S"]
+CEU_S <- CEU_S[order(rowSums(CEU_S),decreasing = TRUE),order(colSums(CEU_S),decreasing = FALSE)]
+
+CEU_G1 <- CEU[,GM12878@meta.data$Phase == "G1"]
+CEU_G1 <- CEU_G1[order(rowSums(CEU_G1),decreasing = TRUE),order(colSums(CEU_G1),decreasing = FALSE)]
+
+CEU_G2 <- CEU[,GM12878@meta.data$Phase == "G2M"]
+CEU_G2 <- CEU_G2[order(rowSums(CEU_G2),decreasing = TRUE),order(colSums(CEU_G2),decreasing = FALSE)]
+
+sGenes <- sort(unique(c(rownames(CEU_S)[1:200],rownames(CEU_G1)[1:150],rownames(CEU_G2)[1:200]))[1:200])
+
+CEU_S <- CEU_S[sGenes,]
+CEU_S <- CEU_S[order(rowSums(CEU_S),decreasing = TRUE),order(colSums(CEU_S),decreasing = TRUE)]
+
+CEU_G1 <- CEU_G1[sGenes,]
+CEU_G1 <- CEU_G1[order(rowSums(CEU_G1),decreasing = TRUE),order(colSums(CEU_G1),decreasing = TRUE)]
+
+CEU_G2 <- CEU_G2[sGenes,]
+CEU_G2 <- CEU_G2[order(rowSums(CEU_G2),decreasing = TRUE),order(colSums(CEU_G2),decreasing = TRUE)]
+####
+
+YRI_S <- YRI[,GM18502@meta.data$Phase == "S"]
+YRI_S <- YRI_S[order(rowSums(YRI_S),decreasing = TRUE),order(colSums(YRI_S),decreasing = FALSE)]
+
+YRI_G1 <- YRI[,GM18502@meta.data$Phase == "G1"]
+YRI_G1 <- YRI_G1[order(rowSums(YRI_G1),decreasing = TRUE),order(colSums(YRI_G1),decreasing = FALSE)]
+
+YRI_G2 <- YRI[,GM18502@meta.data$Phase == "G2M"]
+YRI_G2 <- YRI_G2[order(rowSums(YRI_G2),decreasing = TRUE),order(colSums(YRI_G2),decreasing = FALSE)]
+
+sGenes <- sort(unique(c(rownames(YRI_S)[1:200],rownames(YRI_G1)[1:200],rownames(YRI_G2)[1:150]))[1:200])
+
+YRI_S <- YRI_S[sGenes,]
+YRI_S <- YRI_S[order(rowSums(YRI_S),decreasing = TRUE),order(colSums(YRI_S),decreasing = TRUE)]
+
+YRI_G1 <- YRI_G1[sGenes,]
+YRI_G1 <- YRI_G1[order(rowSums(YRI_G1),decreasing = TRUE),order(colSums(YRI_G1),decreasing = TRUE)]
+
+YRI_G2 <- YRI_G2[sGenes,]
+YRI_G2 <- YRI_G2[order(rowSums(YRI_G2),decreasing = TRUE),order(colSums(YRI_G2),decreasing = TRUE)]
+
+
+CEU <- cbind(CEU_G1,CEU_S,CEU_G2)
+YRI <- cbind(YRI_G1, YRI_S, YRI_G2)
+
+O <- cbind(CEU,YRI)
+O <- log10(O+1)
+sGenes <- sort(rowSums(O), decreasing = TRUE)
+O <- O[names(sGenes),]
+O[O > 4] <- 4
+
+sGenes <- sort(rowSums(O), decreasing = FALSE)
+O <- O[names(sGenes),]
+n <- nrow(O)
+newCol <- colorRampPalette(c("blue4","blue3","blue2","blue1","blue", "white", "red", "red1","red2","red3","red4"))
+
+pdf("Figure1.pdf", width = 3.5*3, height = 3.5)
+layout(matrix(c(rep(1,19),2), 1, 20, byrow = TRUE))
+opar <- par()
+par(mar=c(3,4,3,1),mgp=c(1.5,0.5,0))
+image(x=t(as.matrix(O)), useRaster=TRUE, col=newCol(50), yaxt="n", xaxt="n", bty = "n")
+CD <- ncol(CEU)/ncol(O)
+abline(v = CD, lwd = 2, col = "white")
+atV <- c(ncol(CEU_G1)/2,
+         ncol(CEU_G1)+(ncol(CEU_S)/2),
+         ncol(CEU_G1)+ncol(CEU_S)+(ncol(CEU_G2)/2),
+         ncol(CEU_G1)+ncol(CEU_S)+ncol(CEU_G2)+(ncol(YRI_G1)/2),
+         ncol(CEU_G1)+ncol(CEU_S)+ncol(CEU_G2)+ncol(YRI_G1)+(ncol(YRI_S)/2),
+         ncol(CEU_G1)+ncol(CEU_S)+ncol(CEU_G2)+ncol(YRI_G1)+ncol(YRI_S)+(ncol(YRI_G2)/2)
+         )/ncol(O)
+axis(side = 3,at = atV, labels = c("G1", "S", "G2M", "G1", "S", "G2M"), font = 2, cex.axis=1)
+atL <- c(4633,1113,1299,2525,1367,1297)
+axis(side = 1, labels = atL, at = atV, tick = 0, line = 0)
+mtext("GM12878",side = 3, at = (ncol(CEU)/2)/ncol(O),line = 1.5, font = 2)
+mtext("GM18502",side = 3, at = (ncol(CEU)+(ncol(YRI)/2))/ncol(O),line = 1.5, font = 2)
+#mtext("Top 200 Genes",side = 2, line = 0.5, cex = 0.8)
+mtext("Number of Cells",side = 1, line = 1.5, cex = 0.8)
+igPos <-grep("IG",rownames(O))
+axis(side=2, at= (1/(n))*igPos, labels = rep("",length(igPos)), las=2, cex.axis = 0.7)
+igNames <- rownames(O)[igPos]
+mtext(text = igNames[1],side = 2, at = (1/(n))*igPos[1], las=2, cex=0.6, line = 0.7)
+mtext(text = igNames[2],side = 2, at = (1/(n))*(igPos[2]-3.5), las=2, cex=0.6, line = 0.7)
+mtext(text = igNames[3],side = 2, at = (1/(n))*(igPos[3]+3.5), las=2, cex=0.6, line = 0.7)
+mtext(text = igNames[4],side = 2, at = (1/(n))*(igPos[4]-3.5), las=2, cex=0.6, line = 0.7)
+mtext(text = igNames[5],side = 2, at = (1/(n))*(igPos[5]+3.5), las=2, cex=0.6, line = 0.7)
+# axis(side=4, at= ((1/(n-1))*seq(0,(n-2),2)), labels = sGenes[seq(2,n,2)], las=2, cex.axis = 0.7)
+box()
+par(mar=c(10,2,3,1))
+image.scale(O,col = newCol(50),horiz = FALSE, ylab = "", xlab="", las = 1, cex.axis =0.8)
+mtext(parse(text = "log[10]('Expression + 1')"), side = 2, cex = 0.8, line = 1)
 dev.off()
+
