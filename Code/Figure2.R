@@ -23,7 +23,7 @@ names(avg) <- rep(c(0:4),2)
 pdf(file = "Figure2.pdf", width = 3.5*3, height = 3.5)
 par(mar=c(3,4,1,1), mgp=c(3,0.5,0), mfrow=c(1,3))
   # Growth Curve
-plot(avg[1:5], type = "b", pch = 16, las=1, ylim = c(0,1e6), col= "black", ylab = "", xaxt="n", xlab="")
+plot(avg[1:5], type = "b", pch = 16, las=1, ylim = c(0,1e6), col= "black", ylab = "", xaxt="n", xlab="", main="GROWTH CURVE")
 axis(side = 1, at = 1:5, labels = 0:4)
 points(avg[6:10], type = "b", pch = 15, col = "red")
 arrows(x0 = 1:5, y0 = (avg-se)[1:5], y1 = (avg+se)[1:5], x1 = 1:5, angle = 90, length = 0.05,code = 3)
