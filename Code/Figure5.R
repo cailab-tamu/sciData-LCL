@@ -1,5 +1,7 @@
 library(Matrix)
 library(geuvPack)
+library(preprocessCore)
+library(limma)
 
 data("geuFPKM")
 geneLength <- read.csv("hg38_genes_length.tsv", sep = "\t", stringsAsFactors = FALSE)
@@ -31,19 +33,19 @@ YRI <- cbind(rowMeans(YRI))
 bulkRNAseq <- read.csv("bulkFQ/RNAseq.tsv", sep = "\t")
 bulkRNAseq <- bulkRNAseq[rownames(bulkRNAseq) %in% geneLength[,1],]
 
-GM12878 <- readMM("GM12878/GRCh38/matrix.mtx")
-rownames(GM12878) <- read.csv("GM12878/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
+GM12878 <- readMM("../GM12878/GRCh38/matrix.mtx")
+rownames(GM12878) <- read.csv("../GM12878/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
 GM12878 <- cbind(apply(GM12878,1,sum))
 
-GM18502 <- readMM("GM18502/GRCh38/matrix.mtx")
-rownames(GM18502) <- read.csv("GM18502/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
+GM18502 <- readMM("../GM18502/GRCh38/matrix.mtx")
+rownames(GM18502) <- read.csv("../GM18502/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
 GM18502 <- cbind(apply(GM18502,1,sum))
 
 sharedGenes <- table(c(make.unique(rownames(GM12878)),
-make.unique(rownames(GM18502)),
-make.unique(rownames(CEU)),
-make.unique(rownames(YRI)),
-make.unique(rownames(bulkRNAseq))))
+                       make.unique(rownames(GM18502)),
+                       make.unique(rownames(CEU)),
+                       make.unique(rownames(YRI)),
+                       make.unique(rownames(bulkRNAseq))))
 sharedGenes <- names(sharedGenes[sharedGenes == 5])
 
 bulkRNAseq <- bulkRNAseq[sharedGenes,]
@@ -64,9 +66,8 @@ all <- log(all)
 cor(all,method = "sp")
 all <- as.data.frame(all)
 
-
-pdf("Figure5.pdf", width = 3.5*4, height = 3.5)
-par(mfrow=c(1,4))
+pdf("Figure5.pdf", width = 3.3*3, height = 2.5*2)
+layout(matrix(c(1,2,5,5,3,4,5,5), nrow = 2, ncol = 4, byrow = TRUE))
 par(mar=c(3,3,2.5,1), mgp=c(1.5,0.5,0))
 plot(all[,"scGM12878"],all[,"bGM12878"], pch = 16, 
      col=densCols(cbind(all[,"scGM12878"],all[,"bGM12878"])), 
@@ -114,42 +115,91 @@ mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
 mtext("GM18502 vs. YRI Population", side = 3, line = 0.1, cex = 0.7)
 legend("topleft", legend = parse(text = paste('rho == ', corV)), col = "red", lty = 1, bty = "n")
 abline(lm(all[,"YRI"]~all[,"scGM18502"]), col = "red")
-dev.off()
 
-# "log10(RNA-seq FPKM)\nCEU:SRR038449",
-# "log10(RNA-seq FPKM)\nYRI:SRR6355954",
-png("Figure5PCA.png", width = 900*4, height = 900, res = 300)
-par(mfrow=c(1,4))
+geneLength <- read.csv("hg38_genes_length.tsv", sep = "\t", stringsAsFactors = FALSE)
+gL <- geneLength[,4]
+names(gL) <- geneLength[,1]
+geneInfo <- cbind(geuFPKM@rowRanges$gene_id,geuFPKM@rowRanges$gene_name)
+rownames(geneInfo) <- geneInfo[,1]
+popInfo <- read.csv("populationInfo/GD660.GeneQuantCount.txt.gz", sep = "\t")
+gNames <- popInfo[,2]
+popInfo <- popInfo[gNames %in% geneInfo[,1],]
+gNames <- gNames[gNames %in% geneInfo[,1]]
+gNames <- geneInfo[as.vector(gNames),2]
+colnames(popInfo) <- unlist(lapply(strsplit(colnames(popInfo), "\\."), function(X){X[1]}))
+popInfo <- popInfo[,colnames(geuFPKM)]
+rownames(popInfo) <- make.unique(gNames)
+
+CEU <- popInfo[,geuFPKM@colData$popcode == "CEU",]
+CEU <- CEU[rownames(CEU) %in% geneLength[,1],]
+
+YRI <- popInfo[,geuFPKM@colData$popcode == "YRI",]
+YRI <- YRI[rownames(YRI) %in% geneLength[,1],]
+
+bulkRNAseq <- read.csv("bulkFQ/RNAseq.tsv", sep = "\t")
+bulkRNAseq <- bulkRNAseq[rownames(bulkRNAseq) %in% geneLength[,1],]
+
+GM12878 <- readMM("../GM12878/GRCh38/matrix.mtx")
+rownames(GM12878) <- read.csv("../GM12878/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
+GM12878 <- cbind(apply(GM12878,1,sum))
+
+GM18502 <- readMM("../GM18502/GRCh38/matrix.mtx")
+rownames(GM18502) <- read.csv("../GM18502/GRCh38/genes.tsv", sep = "\t", header = FALSE, stringsAsFactors = FALSE)[,2]
+GM18502 <- cbind(apply(GM18502,1,sum))
+
+sharedGenes <- table(c(make.unique(rownames(GM12878)),
+                       make.unique(rownames(GM18502)),
+                       make.unique(rownames(CEU)),
+                       make.unique(rownames(YRI)),
+                       make.unique(rownames(bulkRNAseq))))
+sharedGenes <- names(sharedGenes[sharedGenes == 5])
+
+bulkRNAseq <- bulkRNAseq[sharedGenes,]
+GM18502 <- GM18502[sharedGenes,]
+GM12878 <- GM12878[sharedGenes,]
+
+CEU <- CEU[sharedGenes,]
+YRI <- YRI[sharedGenes,]
+
+colnames(CEU) <- paste0("CEU_",colnames(CEU))
+colnames(YRI) <- paste0("YRI_", colnames(YRI))
+
+all <- cbind(bulkRNAseq,GM12878,GM18502, CEU, YRI)
+dType <- c(rep("b",2), rep("sc",2), rep("geu", ncol(CEU)), rep("geu", ncol(YRI)))
+dType <- as.factor(dType)
+dType <- relevel(dType,ref="sc")
+all <- removeBatchEffect(all,batch = dType)
+
+all <- all/gL[rownames(all)]
+all <- round(t(t(all)/(apply(all,2,sum))) * 1e6)
+all <- all[rowSums(all == 0) == 0,]
+
+colnames(all)[1:4] <- c("bGM12878", "bGM18502", "scGM12878", "scGM18502")
+allN <- normalize.quantiles(all)
+colnames(allN) <- colnames(all)
+rownames(allN) <- rownames(all)
+all <- round(allN)
+
+cList <- rep("gray", ncol(all))
+cList[grepl("YRI", colnames(all))] <- rgb(1,0,0,0.5)
+cList[grepl("scGM18502", colnames(all))] <- rgb(1,0,0,1)
+cList[grepl("bGM18502", colnames(all))] <- rgb(1,0,0,1)
+cList[grepl("CEU", colnames(all))] <- rgb(0,0,1,0.5)
+cList[grepl("scGM12878", colnames(all))] <- rgb(0,0,1,1)
+cList[grepl("bGM12878", colnames(all))] <- rgb(0,0,1,1)
+
 par(mar=c(3,3,2.5,1), mgp=c(1.5,0.5,0))
-yLim = c(-10,10)
-o <- cbind(all$scGM12878, all$bGM12878)
-o <- prcomp(o)
-summary(o)
-plot(o$x, pch = 16, col=densCols(o$x), xlab="PC1 (89.65%)", ylab="PC2 (10.35%)", las = 1, ylim=yLim)
-mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM12878 vs. GM12878", side = 3, line = 0.1, cex = 0.7)
-
-
-o <- cbind(all$scGM18502, all$bGM18502)
-o <- prcomp(o)
-summary(o)
-plot(o$x, pch = 16, col=densCols(o$x), xlab="PC1 (79.91%)", ylab="PC2 (20.09%)", las = 1, ylim=yLim)
-mtext("SC vs. BULK", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM18502 vs. GM18502", side = 3, line = 0.1, cex = 0.7)
-
-
-
-o <- cbind(all$scGM12878, all$CEU)
-o <- prcomp(o)
-summary(o)
-plot(o$x, pch = 16, col=densCols(o$x), xlab="PC1 (89.06%)", ylab="PC2 (10.94%)", las = 1, ylim=yLim)
-mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM12878 vs. CEU Population", side = 3, line = 0.1, cex = 0.7)
-
-o <- cbind(all$scGM18502, all$YRI)
-o <- prcomp(o)
-summary(o)
-plot(o$x, pch = 16, col=densCols(o$x), xlab="PC1 (89.58%)", ylab="PC2 (10.42%)", las = 1, ylim=yLim)
-mtext("SC vs. BULK AVERAGE", side = 3, line = 1, cex = 1,font = 2)
-mtext("GM18502 vs. YRI Population", side = 3, line = 0.1, cex = 0.7)
+outData <- prcomp(scale(t(all)))$x[,1:2]
+colnames(outData) <- c("PC1","PC2")
+plot(outData, pch=16, col=cList, las=1, xlab = "", ylab = "", cex = 1.5)
+mtext(parse(text = "PC1"), side = 1,  line = 2)
+mtext(parse(text = "PC2"), side = 2,  line = 1.5)
+mtext("PCA", side = 3, line = 1, cex = 1,font = 2)
+mtext("ALL SAMPLES", side = 3, line = 0.1, cex = 0.7)
+text(outData[1,1],outData[1,2]+5,"BULK-GM12878")
+text(outData[2,1],outData[2,2]-5,"BULK-GM18502")
+text(outData[3,1],outData[3,2]+5,"SC-GM12878")
+text(outData[4,1],outData[4,2]-5,"SC-GM18502")
+abline(h=0, lty=2, col=rgb(0,0,0,0.1))
+legend("bottomright", legend = c("CEU", "YRI"), bty = "n", horiz = TRUE, pch = 16, col = c(rgb(0,0,1,0.5),rgb(1,0,0,0.5)))
 dev.off()
