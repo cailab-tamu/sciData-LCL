@@ -7,4 +7,4 @@ In biomedical research, lymphoblastoid cell lines (LCLs), often established by i
 
 ## Fastq files
 ![Structure of a read](https://raw.githubusercontent.com/cailab-tamu/sciData-LCL/master/10XReadStructure.png)
-R1 and R2 files (required for Salmon alevin and Kallisto BUS) are provided through SRA [[here]](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE126321). If you are interested in the 3 fastq files required for CellRanger, they are available [[here]](https://drive.google.com/drive/folders/1rnPOgr-U3bA9w0ApO74ultKwiMOGTrtD?usp=sharing)
+R1 and R2 files (required to run Salmon alevin and Kallisto BUS) are provided through SRA [[here]](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE126321). If you are interested in the 3 fastq files required to run CellRanger, they are available [[here]](https://drive.google.com/drive/folders/1rnPOgr-U3bA9w0ApO74ultKwiMOGTrtD?usp=sharing)
